@@ -73,11 +73,6 @@ def templateMatching(source_image, templates_dir, show_only=False, show_only_one
         return source_image
 
 
-<<<<<<< Updated upstream
-def main():
-    source_video = "C:\\Users\\klopp\\GitHub-directories\\drone-detector-python\\Imgs\\drone_vid.mp4"
-    template_image = "C:\\Users\\klopp\\GitHub-directories\\drone-detector-python\\Imgs\\Templates\\template_image_2.png"
-=======
 def brigthness_estimation(image, pixel):
     summ = 0
     for y in range(-1, 1):
@@ -109,7 +104,6 @@ def main():
     source_video = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\drone_vid.mp4"
     source_photo = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\source_image.png"
     source_photo = cv.imread(source_photo)
->>>>>>> Stashed changes
     videoMatcher(source_video, TEMPLATES_DIR)
     #templateMatching(source_image, template_image)
 
