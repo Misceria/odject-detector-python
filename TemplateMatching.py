@@ -7,7 +7,7 @@ from copy import deepcopy
 from math import sqrt
 
 
-TEMPLATES_DIR = 'C:\\Users\\klopp\\GitHub-directories\\drone-detector-python\\Imgs\\Templates'
+TEMPLATES_DIR = 'C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\Templates'
 
 
 
@@ -93,10 +93,15 @@ def EuclideanDistanceMax(dots_y, dots_x, size):
             # Наиболее удалённая точка со штрафом удалённости от верха изображения
             
             summ_distance += EuclideanDistance((dots_y[dot], dots_x[dot]), (dots_y[cont_dot], dots_x[cont_dot])) \
-                            - EuclideanDistance((dots_y[dot], dots_x[dot]), (0, dots_x[dot]))*1.35
+                            - EuclideanDistance((dots_y[dot], dots_x[dot]), (0, dots_x[dot]))*1.35\
+                            - (dots_y[dot]-size[0])**2
                             
         all_distances.append(summ_distance/len(dots_y))
-    return (dots_x[all_distances.index(max(all_distances))], dots_y[all_distances.index(max(all_distances))])
+    try:
+        return (dots_x[all_distances.index(max(all_distances))], dots_y[all_distances.index(max(all_distances))])
+    except ValueError:
+        return None
+    
     
 def EuclideanDistance(point1, point2):
     return (sqrt((point1[0]-point2[0])**2 + (point1[1]-point2[1])**2))
@@ -107,19 +112,37 @@ def HarrisMethod(source_image):
     
     gray = cv.cvtColor(source_image, cv.COLOR_BGR2GRAY)
     gray = np.float32(gray)
+    cv.imshow("AA",source_image[:int(2/6*cols),])
     dst = cv.cornerHarris(gray, 2,3,0.2)
     #result is dilated for marking the corners, not important
     #dst = cv.dilate(dst,None)
     #dst = cv.erode(dst, np.ones((1,1), np.uint8), iterations=1)
-    dots_y, dots_x = np.where(dst>0.15*dst.max())
+    dots_y, dots_x = np.where(dst>0.02*dst.max())
+    n_dots_y = []
+    n_dots_x = []
+    for d in range(len(dots_y)):
+        if dots_y[d] < int(2/6*rows):
+            n_dots_y.append(dots_y[d])
+            n_dots_x.append(dots_x[d])
+    print(len(dots_y), len(n_dots_y))
     #print(len(dots_y), len(dots_x))
-    main_dot = EuclideanDistanceMax(dots_y, dots_x, (rows, cols))
-    source_image = cv.circle(source_image, main_dot, 10, (0,0,255), 3)
-    print(main_dot)
-    source_image[dst>0.01*dst.max()]=[0,0,255]
-    #dots = np.argwhere(dst>0.01*dst.max())
-    # Threshold for an optimal value, it may vary depending on the image.
-    #source_image[dst>0.01*dst.max()]=[0,0,255]
+    if len(n_dots_y) > 500:
+        print(len(n_dots_y), len(n_dots_x))
+        indexes = np.random.random_integers(0, len(n_dots_y)-1, 500)
+        print(len(indexes))
+        dots_y = []
+        dots_x = []
+        for ind in indexes:
+            dots_y.append(n_dots_y[ind])
+            dots_x.append(n_dots_x[ind])
+    main_dot = EuclideanDistanceMax(n_dots_y, n_dots_x, (rows, cols))
+    if main_dot:
+        source_image = cv.circle(source_image, main_dot, 10, (0,0,255), 3)
+        #print(main_dot)
+        source_image[dst>0.02*dst.max()]=[0, 0, 255]
+        #dots = np.argwhere(dst>0.01*dst.max())
+        # Threshold for an optimal value, it may vary depending on the image.
+        #source_image[dst>0.01*dst.max()]=[0,0,255]
     return source_image
             
 
