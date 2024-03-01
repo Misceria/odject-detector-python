@@ -20,11 +20,13 @@ def videoMatcher(video, templates_dir):
     while cap.isOpened:
         ret, frame = cap.read()
         if ret==True:
-            sky_frame,mask = getSky(frame)
+            #sky_frame, mask = getSky(frame)
             #frame = templateMatching(sky_frame, templates_dir=TEMPLATES_DIR, thresh=0.73)
             
-            frame = imageMatcher(frame, size_decrease=1)
-            frame = HarrisMethod(sky_frame, mask)
+            frame_without_horizon, mask = imageMatcher(frame, size_decrease=1)
+            frame_canny, contour = CannyContours(frame_without_horizon, pre_max=True)
+            #frame = CannyContours(frame)
+            cv.drawContours(frame, contour, -1, (0, 0, 255), 2)
             cv.imshow("Template Matching", frame)
 
             if cv.waitKey(25) & 0xFF == ord('q'):
@@ -44,14 +46,14 @@ def imageMatcher(source_image, show=False, size_decrease=2):
     
     #frame = templateMatching(source_image_grey, templates_dir=TEMPLATES_DIR, thresh=0.73)
     #frame = HarrisMethod(frame)
-    
-    sky_image, mask = getSky(source_image)
+    image, mask = getSky(source_image)
+    #sky_image = CannyContours(image)
     print("EXND")
-    sky_image = cv.resize(sky_image, (width//size_decrease, height//size_decrease))
-    if show:
-        cv.imshow("dasd", sky_image)
+    if show:  
+        show_image = cv.resize(source_image, (width//size_decrease, height//size_decrease))
+        cv.imshow("dasd", show_image)
         cv.waitKey(0)
-    return sky_image
+    return image, mask
     
 
 def templateMatching(source_image, templates_dir, show_only=False, show_only_one=True, thresh=0.7):
@@ -134,9 +136,9 @@ def calSkyline(mask):
         raw = mask[:, i]
         after_median = medfilt(raw, 19)
         try:
-            first_zero_index = np.where(after_median==0)[0][20]
+            first_zero_index = np.where(after_median==0)[0][0]
             first_one_index = np.where(after_median==1)[0][0]
-            if first_zero_index > 20:
+            if first_zero_index >= 0:
                 mask[first_one_index:first_zero_index, i] = 1
                 mask[first_zero_index:, i] = 0
                 mask[:first_one_index, i] = 0
@@ -144,7 +146,7 @@ def calSkyline(mask):
             continue
     #plt.imshow(mask)
     #plt.show()
-    
+    mask = cv.medianBlur(mask, 205)
     return mask
 
 
@@ -152,13 +154,13 @@ def getSky(image):
     height, width, _ = image.shape
     image_gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     
-    image_gray = cv.blur(image_gray, (9,3))
+    image_gray = cv.blur(image_gray, (2,2))
     cv.medianBlur(image_gray, 5)
     lap = cv.Laplacian(image_gray, cv.CV_8U)
     gradient_mask = (lap < 6).astype(np.uint8)
     
-    kernel = cv.getStructuringElement(cv.MORPH_RECT, (9, 3))
-    mask = cv.morphologyEx(gradient_mask, cv.MORPH_ERODE, kernel)
+    kernel = cv.getStructuringElement(cv.MORPH_RECT, (5, 30))
+    mask = cv.morphologyEx(gradient_mask, cv.MORPH_OPEN, kernel)
     #plt.imshow(mask)
     #plt.show()
     mask = calSkyline(mask)
@@ -167,12 +169,12 @@ def getSky(image):
 
 
 def HarrisMethod(source_image, mask=None):
-    rows,cols,_ = source_image.shape
+    rows, cols, _ = source_image.shape
     
     gray = cv.cvtColor(source_image, cv.COLOR_BGR2GRAY)
     gray = np.float32(gray)
-    cv.imshow("AA",source_image)
-    dst = cv.cornerHarris(gray, 2,3,0.2)
+    #cv.imshow("AA",source_image)
+    dst = cv.cornerHarris(gray, 2,3,0.1)
     #result is dilated for marking the corners, not important
     #dst = cv.dilate(dst,None)
     #dst = cv.erode(dst, np.ones((1,1), np.uint8), iterations=1)
@@ -206,20 +208,105 @@ def HarrisMethod(source_image, mask=None):
     if main_dot:
         source_image = cv.circle(source_image, main_dot, 10, (0,0,255), 3)
         #print(main_dot)
-        source_image[dst>0.02*dst.max()]=[0, 0, 255]
+        source_image[dst>0.01*dst.max()]=[0, 0, 255]
         #dots = np.argwhere(dst>0.01*dst.max())
         # Threshold for an optimal value, it may vary depending on the image.
         #source_image[dst>0.01*dst.max()]=[0,0,255]
     return source_image
-            
+        
+        
+def nothing():
+    pass
+
+
+def findFilters(source_image, size_decrease=1):
+    
+    cv.namedWindow( "result" ) # создаем главное окно
+    cv.namedWindow( "settings" ) # создаем окно настроек
+    try:
+        source_image = cv.imread(source_image)
+    except:
+        pass
+    try:
+        height, width, _ = source_image.shape
+        source_image_grey = cv.cvtColor(source_image, cv.COLOR_BGR2GRAY)
+    except:
+        height, width = source_image.shape
+        source_image_grey = source_image
+    
+    # создаем 6 бегунков для настройки начального и конечного цвета фильтра
+    cv.createTrackbar('min', 'settings', 0, 255, nothing)
+    cv.createTrackbar('max', 'settings', 0, 255, nothing)  
+    cv.createTrackbar('blur', 'settings', 3, 50, nothing)  
+    
+    while True:
+        minbr = cv.getTrackbarPos('min', 'settings')
+        maxbr = cv.getTrackbarPos('max', 'settings') 
+        blur = cv.getTrackbarPos('blur', 'settings')
+        
+        br_min = np.array(minbr, np.uint8)
+        br_max = np.array(maxbr, np.uint8) 
+        
+        thresh = cv.inRange(source_image_grey, br_min, br_max)
+        try:
+            thresh = cv.medianBlur(thresh, blur)
+        except:
+            pass
+        height, width = thresh.shape
+        thresh = cv.resize(thresh, (width//size_decrease, height//size_decrease))
+        cv.imshow('result', thresh)
+        
+        ch = cv.waitKey(5)
+        if ch == 27:
+            break
+        
+        
+def CannyContours(source_image, size_decrease=1, show=False, biggest=False, pre_max=False):
+    very_source_image = deepcopy(source_image)
+    try:
+        source_image = cv.imread(source_image)
+    except:
+        pass
+    source_image = cv.cvtColor(source_image, cv.COLOR_BGR2GRAY)
+    h,w = source_image.shape
+    ret, thresh = cv.threshold(source_image, 120, 255, 0)
+    edges = cv.Canny(source_image ,170,255)
+    edges = cv.GaussianBlur(edges, (17,17), 0)
+    cv.imshow("edges", edges)
+    contours, hierarchy = cv.findContours(edges, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+    for cont in contours:
+        print(len(cont))
+    #print(len(contours))
+    if pre_max:
+        contours = sorted(contours,key=len)
+        try:
+            cont = contours[-2]
+            cv.drawContours(very_source_image, cont, -1, (0,255, 0),3)
+            return very_source_image, cont
+        except:
+            return very_source_image, []
+    elif biggest:
+        biggest_cont = max(contours, key=len)
+        cv.drawContours(source_image, biggest_cont, -1, (0,255, 0),3)
+    else:
+        cv.drawContours(source_image, contours, -1, (0,255, 0),3)
+    if show:
+        show_image = cv.resize(source_image, (w//size_decrease, h//size_decrease))
+        cv.imshow('conts', show_image)
+        cv.waitKey(0)
+    return very_source_image
+        
 
 def main():
     source_video = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\drone_vid.mp4"
     source_photo = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\source_image.png"
-    source_photo = cv.imread(source_photo)
+    #source_photo = cv.imread(source_photo)
+    #findFilters(source_photo, size_decrease=3)
+    #image = imageMatcher(source_photo, size_decrease=2, show=True)
+    #CannyContours(source_photo, size_decrease=2, show=True)
     videoMatcher(source_video, TEMPLATES_DIR)
     #templateMatching(source_image, template_image)
-    #imageMatcher("C:\\Users\\kseni\\Github-repos\\odject-detector-python\\TO_SEARCH\\PITER.jpeg")
+
 
 if __name__=="__main__":
     main()
