@@ -13,7 +13,14 @@ TEMPLATES_DIR = 'C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\T
 
 
 
-def videoMatcher(video, templates_dir):
+def videoMatcher(video):
+    
+    """
+    
+    Функция применения методов к видеопотоку
+    
+    """
+    
     cap = cv.VideoCapture(video)
     if cap.isOpened()==False:
         print("Error reading video stream file")
@@ -55,6 +62,13 @@ def videoMatcher(video, templates_dir):
 
 
 def imageMatcher(source_image, show=False, size_decrease=4):
+    
+    """
+    
+    Функция для применения методов к изображению
+    
+    """
+    
     try:
         source_image = cv.imread(source_image)
     except:
@@ -74,7 +88,19 @@ def imageMatcher(source_image, show=False, size_decrease=4):
     return image, mask
     
 
-def templateMatching(source_image, templates_dir, show_only=False, show_only_one=True, thresh=0.7):
+def templateMatching(source_image, templates_dir, show=False, thresh=0.7):
+    
+    
+    """
+    
+    Метод обнаружения объекта на изображении по схожести с шаблонами
+    source_image - исхожное изображение
+    templates_dir - путь к папке с шаблонами
+    show - вывод изображения
+    thresh - степень уверенности
+    
+    
+    """
 
     source_image = cv.cvtColor(source_image, cv.COLOR_BGR2GRAY)
     
@@ -103,14 +129,20 @@ def templateMatching(source_image, templates_dir, show_only=False, show_only_one
         #bottom_right = (top_left[0]+w, top_left[1]+h)
 
         #cv.rectangle(source_image, top_left, bottom_right, 255, 2)
-    if show_only:
-        plt.imshow(source_image, cmap='gray')
-        plt.show()
-    else:
-        return source_image
+    if show:
+        showImage("Template Matching", source_image)
+    return source_image
 
 
-def brigthness_estimation(image, pixel):
+def brigthnessEstimation(image, pixel):
+    
+    """
+    
+    Оценивает среднюю яркость точки и ближайших соседей
+    
+
+    """
+    
     summ = 0
     for y in range(-1, 1):
         for x in range(-1, 1):
@@ -119,6 +151,17 @@ def brigthness_estimation(image, pixel):
     
 
 def EuclideanDistanceMax(dots_y, dots_x, size):
+    
+    """
+
+    Находит наиболее удалённую от остальных точку
+    
+    dots_y - координаты точек по y
+    dots_x - координаты точек по x
+    size - количество точек
+    
+    """
+    
     all_distances = []
     #print(len(dots))
     for dot in range(len(dots_y)):
@@ -145,10 +188,25 @@ def EuclideanDistanceMax(dots_y, dots_x, size):
     
     
 def EuclideanDistance(point1, point2):
+    
+    """
+
+    Calculates euclidean distance between two points in 2 dimensional grid
+    
+    
+    """
+    
     return (sqrt((point1[0]-point2[0])**2 + (point1[1]-point2[1])**2))
 
 
 def calSkyline(mask):
+    
+    """
+    
+    Gets raw mask and returns horizon line
+    
+    """
+    
     height, width = mask.shape
     for i in range(width):
         raw = mask[:, i]
@@ -168,7 +226,15 @@ def calSkyline(mask):
     return mask
 
 
-def getSky(image):
+def getSky(image, show=False, show_mask=False, size_decrease=1):
+    
+    """
+    
+    This func gets image and returns sky part of image and it's mask
+    image - входное изображение, на котором необходимо найти небо
+    
+    """
+    
     height, width, _ = image.shape
     image_gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     
@@ -179,22 +245,26 @@ def getSky(image):
     
     kernel = cv.getStructuringElement(cv.MORPH_RECT, (5, 30))
     mask = cv.morphologyEx(gradient_mask, cv.MORPH_OPEN, kernel)
-    #plt.imshow(mask)
-    #plt.show()
     mask = calSkyline(mask)
     final_image = cv.bitwise_and(image, image, mask=mask)
+    if show:
+        showImage(final_image, size_decrease, "Sky")
+    if show_mask:
+        showImage(mask, size_decrease, "Sky Mask")
+    
     return final_image, mask
 
 
-def HarrisMethod(source_image, mask=None):
+def HarrisMethod(source_image, mask=None, show = False, size_decrease=1):
     
     """
+    THIS FUNCTION NEEDS REFACTORING
+    source_image - входное изображение
+    mask - маска области в которой происходит поиск (NEED REALISATION)
     
     
     """
-    
     rows, cols, _ = source_image.shape
-    
     gray = cv.cvtColor(source_image, cv.COLOR_BGR2GRAY)
     gray = np.float32(gray)
     dst = cv.cornerHarris(gray, 2,3,0.1)
@@ -217,7 +287,9 @@ def HarrisMethod(source_image, mask=None):
         #dots = np.argwhere(dst>0.01*dst.max())
         # Threshold for an optimal value, it may vary depending on the image.
         #source_image[dst>0.01*dst.max()]=[0,0,255]
-    return source_image
+    if show:
+        showImage(source_image, size_decrease, "Harris Method")
+    return source_image, main_dot
         
         
 def nothing():
@@ -282,7 +354,7 @@ def findFilters(source_image, size_decrease=1):
             break
         
         
-def CannyContours(source_image, size_decrease=1, show=False, biggest=False, pre_max=False, show_edges=False):
+def CannyContours(source_simage, size_decrease=1, show=False, biggest=False, pre_max=False, show_edges=False):
     
     """
     source_image - входное изображение
@@ -335,13 +407,22 @@ def CannyContours(source_image, size_decrease=1, show=False, biggest=False, pre_
     return image_with_contours, contours
 
 
-def showImage(source_image, size_decrease, name_image = "Sample"):
+def showImage(source_image, size_decrease=1, name_image = "Sample"):
+    
+    """
+    
+    Shows image on screen
+    source_image - входное изображение
+    size_decrease - степень уменьшения изображения
+    name_imaage - имя окна для вывода
+    
+    """
     if len(source_image.shape) == 3:
         h,w,_ = source_image.shape
     else:
         h, w = source_image.shape
     show_image = cv.resize(source_image, (w//size_decrease, h//size_decrease))
-    cv.imshow('canny Contours', show_image)
+    cv.imshow(name_image, show_image)
     cv.waitKey(0)
         
 
