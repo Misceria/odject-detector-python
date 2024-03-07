@@ -17,26 +17,44 @@ def videoMatcher(video, templates_dir):
     cap = cv.VideoCapture(video)
     if cap.isOpened()==False:
         print("Error reading video stream file")
+    once = True
     while cap.isOpened:
         ret, frame = cap.read()
+        if once:
+            once = False
+            h, w, _ = frame.shape
+            sub_frame = cv.resize(frame, (int(w//3), int(h//3)))
+            #print(sub_frame)
+            ROI = cv.selectROI("Select", sub_frame)
+            ROI = [x*3 for x in ROI]
+            print(ROI)
         if ret==True:
             #sky_frame, mask = getSky(frame)
             #frame = templateMatching(sky_frame, templates_dir=TEMPLATES_DIR, thresh=0.73)
             
-            frame_without_horizon, mask = imageMatcher(frame, size_decrease=1)
-            frame_canny, contour = CannyContours(frame_without_horizon, pre_max=True)
+            #frame_without_horizon, mask = imageMatcher(frame, size_decrease=1)
+            #frame_canny, contour = CannyContours(frame_without_horizon, pre_max=True)
+            #frame_canny = frame[ROI[0]:ROI[2], ROI[1]:ROI[3]]
+            #print(frame_canny.shape)
+            #print(frame.shape)
+            framy_canny = CannyContours(frame[ROI[1]:ROI[1]+ROI[3], ROI[0]:ROI[0]+ROI[2]], biggest=True)
+            frame_harris = HarrisMethod(frame[ROI[1]:ROI[1]+ROI[3], ROI[0]:ROI[0]+ROI[2]])
+            cv.imshow("HARRIS", frame_harris)
             #frame = CannyContours(frame)
+            
+            """height, width, _ = frame.shape
             cv.drawContours(frame, contour, -1, (0, 0, 255), 2)
+            frame = cv.resize(frame, (int(width//3), int(height//3)))
             cv.imshow("Template Matching", frame)
-
+            """
             if cv.waitKey(25) & 0xFF == ord('q'):
                 break
         
-        else:
+        else:   
             break
 
 
-def imageMatcher(source_image, show=False, size_decrease=2):
+def imageMatcher(source_image, show=False, size_decrease=4):
     try:
         source_image = cv.imread(source_image)
     except:
@@ -141,12 +159,12 @@ def calSkyline(mask):
             if first_zero_index >= 0:
                 mask[first_one_index:first_zero_index, i] = 1
                 mask[first_zero_index:, i] = 0
-                mask[:first_one_index, i] = 0
+                mask[:first_one_index, i] = 0   
         except:
             continue
     #plt.imshow(mask)
     #plt.show()
-    mask = cv.medianBlur(mask, 205)
+    mask = cv.medianBlur(mask, 107) #205
     return mask
 
 
@@ -169,42 +187,29 @@ def getSky(image):
 
 
 def HarrisMethod(source_image, mask=None):
+    
+    """
+    
+    
+    """
+    
     rows, cols, _ = source_image.shape
     
     gray = cv.cvtColor(source_image, cv.COLOR_BGR2GRAY)
     gray = np.float32(gray)
-    #cv.imshow("AA",source_image)
     dst = cv.cornerHarris(gray, 2,3,0.1)
     #result is dilated for marking the corners, not important
     #dst = cv.dilate(dst,None)
     #dst = cv.erode(dst, np.ones((1,1), np.uint8), iterations=1)
     dots_y, dots_x = np.where(dst>0.01*dst.max())
-    n_dots_y = []
-    n_dots_x = []
-    """for d in range(len(dots_y)):
-        if dots_y[d] < int(2/6*rows):
-            n_dots_y.append(dots_y[d])
-            n_dots_x.append(dots_x[d])"""
-    #n_dots_y = dots_y
-    #n_dots_x = dots_x
-    if mask.any():
-        for d in range(len(dots_y)):
-            if mask[dots_y[d], dots_x[d]] == 0:
-                n_dots_y.append(dots_y[d])
-                n_dots_x.append(dots_x[d])
-    
-    print(len(dots_y), len(n_dots_y))
-    #print(len(dots_y), len(dots_x))
-    if len(n_dots_y) > 500:
-        print(len(n_dots_y), len(n_dots_x))
-        indexes = np.random.random_integers(0, len(n_dots_y)-1, 500)
+    print(len(dots_y), len(dots_y))
+    if len(dots_y) > 500:
+        print(len(dots_y), len(dots_x))
+        indexes = np.random.random_integers(0, len(dots_y)-1, 500)
         print(len(indexes))
         dots_y = []
         dots_x = []
-        for ind in indexes:
-            dots_y.append(n_dots_y[ind])
-            dots_x.append(n_dots_x[ind])
-    main_dot = EuclideanDistanceMax(n_dots_y, n_dots_x, (rows, cols))
+    main_dot = EuclideanDistanceMax(dots_y, dots_x, (rows, cols))
     if main_dot:
         source_image = cv.circle(source_image, main_dot, 10, (0,0,255), 3)
         #print(main_dot)
@@ -216,10 +221,26 @@ def HarrisMethod(source_image, mask=None):
         
         
 def nothing():
+    """
+    
+    do absolutely nothing
+    
+    """
+    
+    
     pass
 
 
 def findFilters(source_image, size_decrease=1):
+    
+    """
+    input: source_image - Входное изображение на которое применятся фильтры
+            size_decrease - величина изменения размера изображения
+            
+    Эта функция позволяет поэесперементировать с диапазоном значений минимума и максимума яркости,
+    на которое реагирует детектор, а также размытие
+    
+    """
     
     cv.namedWindow( "result" ) # создаем главное окно
     cv.namedWindow( "settings" ) # создаем окно настроек
@@ -261,50 +282,78 @@ def findFilters(source_image, size_decrease=1):
             break
         
         
-def CannyContours(source_image, size_decrease=1, show=False, biggest=False, pre_max=False):
+def CannyContours(source_image, size_decrease=1, show=False, biggest=False, pre_max=False, show_edges=False):
+    
+    """
+    source_image - входное изображение
+    size_decrease - степень уменьшения размера вывода изображения
+    show - вывод изображения
+    biggest - метод выбора наибольшего контура
+    pre_max - метод выбора второго по размеру контура
+    show_edges - вывод маски обнаружения
+    Если не выбрано ничего из (biggest, pre_max) будут выведены все контуры
+    
+    """
+    
     very_source_image = deepcopy(source_image)
     try:
         source_image = cv.imread(source_image)
     except:
         pass
     source_image = cv.cvtColor(source_image, cv.COLOR_BGR2GRAY)
-    h,w = source_image.shape
-    ret, thresh = cv.threshold(source_image, 120, 255, 0)
-    edges = cv.Canny(source_image ,170,255)
+    #ret, thresh = cv.threshold(source_image, 180, 255, 0)
+    edges = cv.Canny(source_image , 50,255)
     edges = cv.GaussianBlur(edges, (17,17), 0)
-    cv.imshow("edges", edges)
-    contours, hierarchy = cv.findContours(edges, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-    for cont in contours:
-        print(len(cont))
-    #print(len(contours))
+    #edges = cv.GaussianBlur(edges, (3,3), 0)
+    if show_edges:
+        showImage(edges, size_decrease, "Canny edges")
+    contours, _ = cv.findContours(edges, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
     if pre_max:
         contours = sorted(contours,key=len)
         try:
             cont = contours[-2]
-            cv.drawContours(very_source_image, cont, -1, (0,255, 0),3)
+            image_with_contours = cv.drawContours(very_source_image, cont, -1, (0,255, 0),3)
             return very_source_image, cont
         except:
             return very_source_image, []
+        if show:
+            showImage(image_with_contours, size_decrease, "Canny Contours PRE_MAX")
+        contours = cont
     elif biggest:
-        biggest_cont = max(contours, key=len)
-        cv.drawContours(source_image, biggest_cont, -1, (0,255, 0),3)
+        try:
+            biggest_cont = max(contours, key=len)
+            image_with_contours = cv.drawContours(very_source_image, contours, -1, (0,255, 0),3)
+        except:
+            image_with_contours, biggest_cont = very_source_image, None
+        if show:
+            showImage(image_with_contours, size_decrease, "Canny Contours BIGGEST")
+        contours = biggest_cont
     else:
-        cv.drawContours(source_image, contours, -1, (0,255, 0),3)
-    if show:
-        show_image = cv.resize(source_image, (w//size_decrease, h//size_decrease))
-        cv.imshow('conts', show_image)
-        cv.waitKey(0)
-    return very_source_image
+        image_with_contours = cv.drawContours(very_source_image, contours, -1, (0,255, 0),3)
+        if show:
+            showImage(image_with_contours, size_decrease, "Canny Contours ALL")
+    return image_with_contours, contours
+
+
+def showImage(source_image, size_decrease, name_image = "Sample"):
+    if len(source_image.shape) == 3:
+        h,w,_ = source_image.shape
+    else:
+        h, w = source_image.shape
+    show_image = cv.resize(source_image, (w//size_decrease, h//size_decrease))
+    cv.imshow('canny Contours', show_image)
+    cv.waitKey(0)
         
 
 def main():
     source_video = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\drone_vid.mp4"
     source_photo = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\source_image.png"
+    app = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\174ND810_10_02\\DSC_1076.MOV"
     #source_photo = cv.imread(source_photo)
     #findFilters(source_photo, size_decrease=3)
     #image = imageMatcher(source_photo, size_decrease=2, show=True)
     #CannyContours(source_photo, size_decrease=2, show=True)
-    videoMatcher(source_video, TEMPLATES_DIR)
+    videoMatcher(app, TEMPLATES_DIR)
     #templateMatching(source_image, template_image)
 
 
