@@ -7,6 +7,8 @@ import os
 from copy import deepcopy
 from math import sqrt
 from scipy.signal import medfilt
+import imutils
+import joblib
 
 
 TEMPLATES_DIR = 'C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\Templates'
@@ -88,7 +90,7 @@ def imageMatcher(source_image, show=False, size_decrease=4):
     return image, mask
     
 
-def templateMatching(source_image, templates_dir, show=False, thresh=0.7):
+def templateMatching(source_image, templates_dir, show=False, thresh=0.7, mask = None):
     
     
     """
@@ -255,7 +257,7 @@ def getSky(image, show=False, show_mask=False, size_decrease=1):
     return final_image, mask
 
 
-def HarrisMethod(source_image, mask=None, show = False, size_decrease=1):
+def HarrisMethod(source_image, mask=None, show = False, size_decrease=1, mask = None):
     
     """
     THIS FUNCTION NEEDS REFACTORING
@@ -354,7 +356,7 @@ def findFilters(source_image, size_decrease=1):
             break
         
         
-def CannyContours(source_simage, size_decrease=1, show=False, biggest=False, pre_max=False, show_edges=False):
+def CannyContours(source_simage, size_decrease=1, show=False, biggest=False, pre_max=False, show_edges=False, mask = None):
     
     """
     source_image - входное изображение
@@ -385,9 +387,9 @@ def CannyContours(source_simage, size_decrease=1, show=False, biggest=False, pre
         try:
             cont = contours[-2]
             image_with_contours = cv.drawContours(very_source_image, cont, -1, (0,255, 0),3)
-            return very_source_image, cont
+            contours = cont
         except:
-            return very_source_image, []
+            image_with_contours, contours =  very_source_image, []
         if show:
             showImage(image_with_contours, size_decrease, "Canny Contours PRE_MAX")
         contours = cont
@@ -426,6 +428,96 @@ def showImage(source_image, size_decrease=1, name_image = "Sample"):
     cv.waitKey(0)
         
 
+def drawRoi(source_image, show_mask=False, show_ROI=False, show_image_with_ROI=False):
+    
+    """
+    
+    Позволяет вручную выбрать ROI для изображения
+    source_image - исходное изображение
+    
+    returns:
+        mask - маска объекта выделенной зоны интереса
+    """
+    
+    global pts
+    pts = []
+    try:
+        img = cv.imread(source_image)
+    except:
+        pass
+    img = imutils.resize(img, width=500)
+    cv.namedWindow('Select Polygonal ROI')
+    cv.setMouseCallback('Select Polygonal ROI', drawRoiEvent, img)
+    print("[INFO] Используйте ЛКМ для выбора области")
+    print("[INFO] Используйте ПКМ для отмены")
+    print("[INFO] Используйте CКМ для завершения области")
+    print("[INFO] Нажмите ESC для выхода")
+
+    while True:
+        key = cv.waitKey(1) & 0xFF
+        if key == 27:
+            break
+        if key == ord("s"):
+            saved_data = {
+                "ROI": pts
+            }
+            joblib.dump(value=saved_data, filename="config.pkl")
+            print("[INFO] ROI сохранён.")
+            break
+    cv.destroyAllWindows()
+    
+    return mask2
+
+
+def drawRoiEvent(event, x, y, flags, img):
+    
+    """
+    
+    Обработчик события нажатия на изображение
+    event - событие
+    x - точка нажатия по оси абсцисс
+    y - точка нажатия по оси ординат
+    
+    """
+    global mask, mask2, mask3
+    img2 = img.copy()
+
+    if event == cv.EVENT_LBUTTONDOWN:
+        pts.append((x, y))  
+
+    if event == cv.EVENT_RBUTTONDOWN:
+        pts.pop()  
+
+    if event == cv.EVENT_MBUTTONDOWN:
+        mask = np.zeros(img.shape, np.uint8)
+        points = np.array(pts, np.int32)
+        points = points.reshape((-1, 1, 2))
+        
+        mask = cv.polylines(mask, [points], True, (255, 255, 255), 2)
+        mask2 = cv.fillPoly(mask.copy(), [points], (255, 255, 255))
+        mask3 = cv.fillPoly(mask.copy(), [points], (0, 255, 0)) 
+
+        show_image = cv.addWeighted(src1=img, alpha=0.8, src2=mask3, beta=0.2, gamma=0)
+
+        cv.imshow("mask", mask2)
+        cv.imshow("show_img", show_image)
+
+        ROI = cv.bitwise_and(mask2, img)
+        cv.imshow("ROI", ROI)
+        cv.waitKey(0)
+
+    if len(pts) > 0:
+        
+        cv.circle(img2, pts[-1], 3, (0, 0, 255), -1)
+
+    if len(pts) > 1:
+        for i in range(len(pts) - 1):
+            cv.circle(img2, pts[i], 5, (0, 0, 255), -1)  
+            cv.line(img=img2, pt1=pts[i], pt2=pts[i + 1], color=(255, 0, 0), thickness=2)
+
+    cv.imshow('Select Polygonal ROI', img2)
+
+
 def main():
     source_video = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\drone_vid.mp4"
     source_photo = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\source_image.png"
@@ -434,8 +526,9 @@ def main():
     #findFilters(source_photo, size_decrease=3)
     #image = imageMatcher(source_photo, size_decrease=2, show=True)
     #CannyContours(source_photo, size_decrease=2, show=True)
-    videoMatcher(app, TEMPLATES_DIR)
+    #videoMatcher(app)
     #templateMatching(source_image, template_image)
+    msk = drawRoi(source_photo)
 
 
 if __name__=="__main__":
