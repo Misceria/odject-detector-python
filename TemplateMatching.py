@@ -15,7 +15,7 @@ TEMPLATES_DIR = 'C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\T
 
 
 
-def videoMatcher(video):
+def videoMatcher(video, harris=False, canny=False, template_matching=False, size_decrease=1, choose_ROI = False):
     
     """
     
@@ -31,33 +31,23 @@ def videoMatcher(video):
         ret, frame = cap.read()
         if once:
             once = False
-            h, w, _ = frame.shape
-            sub_frame = cv.resize(frame, (int(w//3), int(h//3)))
-            #print(sub_frame)
-            ROI = cv.selectROI("Select", sub_frame)
-            ROI = [x*3 for x in ROI]
-            print(ROI)
+            h, w, _ = frame.shape 
+        if choose_ROI:
+            mask = drawRoi(frame)
+            choose_ROI=False
         if ret==True:
-            #sky_frame, mask = getSky(frame)
-            #frame = templateMatching(sky_frame, templates_dir=TEMPLATES_DIR, thresh=0.73)
+            if harris:
+                HarrisMethod(frame, show=True, size_decrease=size_decrease, wait_click=False, mask = mask)
+            if canny:
+                CannyContours(frame, show=True, size_decrease=size_decrease, wait_click=False, mask=mask)
+            if template_matching:
+                templateMatching(frame, TEMPLATES_DIR, show=True, size_decrease=size_decrease, wait_click=False, mask=mask)
             
-            #frame_without_horizon, mask = imageMatcher(frame, size_decrease=1)
-            #frame_canny, contour = CannyContours(frame_without_horizon, pre_max=True)
-            #frame_canny = frame[ROI[0]:ROI[2], ROI[1]:ROI[3]]
-            #print(frame_canny.shape)
-            #print(frame.shape)
-            framy_canny = CannyContours(frame[ROI[1]:ROI[1]+ROI[3], ROI[0]:ROI[0]+ROI[2]], biggest=True)
-            frame_harris = HarrisMethod(frame[ROI[1]:ROI[1]+ROI[3], ROI[0]:ROI[0]+ROI[2]])
-            cv.imshow("HARRIS", frame_harris)
-            #frame = CannyContours(frame)
-            
-            """height, width, _ = frame.shape
-            cv.drawContours(frame, contour, -1, (0, 0, 255), 2)
-            frame = cv.resize(frame, (int(width//3), int(height//3)))
-            cv.imshow("Template Matching", frame)
-            """
-            if cv.waitKey(25) & 0xFF == ord('q'):
+            key_clicked = cv.waitKey(25)
+            if key_clicked & 0xFF == ord('q'):
                 break
+            elif key_clicked & 0xFF == ord('r'):
+                choose_ROI = True
         
         else:   
             break
@@ -90,7 +80,7 @@ def imageMatcher(source_image, show=False, size_decrease=4):
     return image, mask
     
 
-def templateMatching(source_image, templates_dir, show=False, thresh=0.7, mask = None):
+def templateMatching(source_image, templates_dir, show=False, thresh=0.7, mask = [], wait_click=True, size_decrease=1):
     
     
     """
@@ -103,8 +93,9 @@ def templateMatching(source_image, templates_dir, show=False, thresh=0.7, mask =
     
     
     """
+    changed_source_image = cv.bitwise_and(source_image, mask)
+    changed_source_image = cv.cvtColor(changed_source_image, cv.COLOR_BGR2GRAY)
 
-    source_image = cv.cvtColor(source_image, cv.COLOR_BGR2GRAY)
     
     for template in os.listdir(templates_dir):
         #print(os.listdir(templates_dir))
@@ -116,7 +107,7 @@ def templateMatching(source_image, templates_dir, show=False, thresh=0.7, mask =
                 'cv.TM_CCORR_NORMED', 'cv.TM_SQDIFF', 'cv.TM_SQDIFF_NORMED']
 
         method = cv.TM_CCOEFF_NORMED
-        res = cv.matchTemplate(source_image, template_image, method)
+        res = cv.matchTemplate(changed_source_image, template_image, method)
         (y_points, x_points) = np.where(res >= thresh) 
         boxes = list() 
         
@@ -132,7 +123,7 @@ def templateMatching(source_image, templates_dir, show=False, thresh=0.7, mask =
 
         #cv.rectangle(source_image, top_left, bottom_right, 255, 2)
     if show:
-        showImage("Template Matching", source_image)
+        showImage(source_image, size_decrease=size_decrease, name_image="Template Matching", wait_click=wait_click)
     return source_image
 
 
@@ -257,7 +248,7 @@ def getSky(image, show=False, show_mask=False, size_decrease=1):
     return final_image, mask
 
 
-def HarrisMethod(source_image, mask=None, show = False, size_decrease=1, mask = None):
+def HarrisMethod(source_image, mask=[], show = False, size_decrease=1, wait_click=True):
     
     """
     THIS FUNCTION NEEDS REFACTORING
@@ -275,22 +266,34 @@ def HarrisMethod(source_image, mask=None, show = False, size_decrease=1, mask = 
     #dst = cv.erode(dst, np.ones((1,1), np.uint8), iterations=1)
     dots_y, dots_x = np.where(dst>0.01*dst.max())
     print(len(dots_y), len(dots_y))
-    if len(dots_y) > 500:
-        print(len(dots_y), len(dots_x))
-        indexes = np.random.random_integers(0, len(dots_y)-1, 500)
-        print(len(indexes))
-        dots_y = []
-        dots_x = []
-    main_dot = EuclideanDistanceMax(dots_y, dots_x, (rows, cols))
+    if mask == []:
+        if len(dots_y) > 500:
+            print(len(dots_y), len(dots_x))
+            indexes = np.random.random_integers(0, len(dots_y)-1, 500)
+            print(len(indexes))
+            n_dots_x = []
+            n_dots_y = []
+            for ind in indexes:
+                n_dots_x.append(dots_x[ind])
+                n_dots_y.append(dots_y[ind])
+    else:
+        n_dots_x = []
+        n_dots_y = []
+        for ind in range(len(dots_x)):
+            if mask[dots_y[ind], dots_x[ind]].all() == 1:
+                n_dots_x.append(dots_x[ind])
+                n_dots_y.append(dots_y[ind])  
+    main_dot = EuclideanDistanceMax(n_dots_y, n_dots_x, (rows, cols))
     if main_dot:
         source_image = cv.circle(source_image, main_dot, 10, (0,0,255), 3)
         #print(main_dot)
-        source_image[dst>0.01*dst.max()]=[0, 0, 255]
+        #source_image[dst>0.01*dst.max()]=[0, 0, 255]
+        source_image[dots_y, dots_x]=[0, 0, 255]
         #dots = np.argwhere(dst>0.01*dst.max())
         # Threshold for an optimal value, it may vary depending on the image.
         #source_image[dst>0.01*dst.max()]=[0,0,255]
     if show:
-        showImage(source_image, size_decrease, "Harris Method")
+        showImage(source_image, size_decrease, "Harris Method", wait_click=wait_click)
     return source_image, main_dot
         
         
@@ -356,7 +359,7 @@ def findFilters(source_image, size_decrease=1):
             break
         
         
-def CannyContours(source_simage, size_decrease=1, show=False, biggest=False, pre_max=False, show_edges=False, mask = None):
+def CannyContours(source_image, size_decrease=1, show=False, biggest=False, pre_max=False, show_edges=False, mask = None, wait_click=True):
     
     """
     source_image - входное изображение
@@ -368,20 +371,27 @@ def CannyContours(source_simage, size_decrease=1, show=False, biggest=False, pre
     Если не выбрано ничего из (biggest, pre_max) будут выведены все контуры
     
     """
+
     
-    very_source_image = deepcopy(source_image)
     try:
         source_image = cv.imread(source_image)
     except:
         pass
+    very_source_image = deepcopy(source_image)
+    print(mask.shape, source_image.shape)
+    source_image = cv.bitwise_and(source_image, mask)
+    #cv.imshow("BITWISE", source_image)
+    #cv.waitKey(0)
     source_image = cv.cvtColor(source_image, cv.COLOR_BGR2GRAY)
     #ret, thresh = cv.threshold(source_image, 180, 255, 0)
     edges = cv.Canny(source_image , 50,255)
     edges = cv.GaussianBlur(edges, (17,17), 0)
     #edges = cv.GaussianBlur(edges, (3,3), 0)
     if show_edges:
-        showImage(edges, size_decrease, "Canny edges")
+        showImage(edges, size_decrease, "Canny edges", wait_click=wait_click)
     contours, _ = cv.findContours(edges, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+    #contours = sorted(contours, key=len)[:-2]
+    print(len(contours))
     if pre_max:
         contours = sorted(contours,key=len)
         try:
@@ -391,7 +401,7 @@ def CannyContours(source_simage, size_decrease=1, show=False, biggest=False, pre
         except:
             image_with_contours, contours =  very_source_image, []
         if show:
-            showImage(image_with_contours, size_decrease, "Canny Contours PRE_MAX")
+            showImage(image_with_contours, size_decrease, "Canny Contours PRE_MAX", wait_click=wait_click)
         contours = cont
     elif biggest:
         try:
@@ -400,16 +410,16 @@ def CannyContours(source_simage, size_decrease=1, show=False, biggest=False, pre
         except:
             image_with_contours, biggest_cont = very_source_image, None
         if show:
-            showImage(image_with_contours, size_decrease, "Canny Contours BIGGEST")
+            showImage(image_with_contours, size_decrease, "Canny Contours BIGGEST", wait_click=wait_click)
         contours = biggest_cont
     else:
         image_with_contours = cv.drawContours(very_source_image, contours, -1, (0,255, 0),3)
         if show:
-            showImage(image_with_contours, size_decrease, "Canny Contours ALL")
+            showImage(image_with_contours, size_decrease, "Canny Contours ALL", wait_click=wait_click)
     return image_with_contours, contours
 
 
-def showImage(source_image, size_decrease=1, name_image = "Sample"):
+def showImage(source_image, size_decrease=1, name_image = "Sample", wait_click=False):
     
     """
     
@@ -425,10 +435,32 @@ def showImage(source_image, size_decrease=1, name_image = "Sample"):
         h, w = source_image.shape
     show_image = cv.resize(source_image, (w//size_decrease, h//size_decrease))
     cv.imshow(name_image, show_image)
-    cv.waitKey(0)
+    if wait_click:
+        cv.waitKey(0)
+        
+        
+def showImages(source_images, size_decrease=1, name_images = ["Sample"], wait_click = False):
+    
+    """
+    
+    Shows many images on screen at once
+    source_image - массив входных изображений
+    size_decrease - степень уменьшения изображения
+    name_imaage - массив имён окон для вывода
+    
+    """
+    for image_num in range(len(source_images)):
+        if len(source_images[image_num].shape) == 3:
+            h,w,_ = source_images[image_num].shape
+        else:
+            h, w = source_images[image_num].shape
+        show_image = cv.resize(source_images[image_num], (w//size_decrease, h//size_decrease))
+        cv.imshow(name_images[image_num], show_image)
+    if wait_click:
+        cv.waitKey(0)
         
 
-def drawRoi(source_image, show_mask=False, show_ROI=False, show_image_with_ROI=False):
+def drawRoi(source_image, size_decrease=1):
     
     """
     
@@ -439,20 +471,21 @@ def drawRoi(source_image, show_mask=False, show_ROI=False, show_image_with_ROI=F
         mask - маска объекта выделенной зоны интереса
     """
     
-    global pts
+    global pts, size_decrease_for_draw_roi
+    size_decrease_for_draw_roi = size_decrease
     pts = []
     try:
         img = cv.imread(source_image)
     except:
-        pass
-    img = imutils.resize(img, width=500)
+        img = source_image
     cv.namedWindow('Select Polygonal ROI')
     cv.setMouseCallback('Select Polygonal ROI', drawRoiEvent, img)
     print("[INFO] Используйте ЛКМ для выбора области")
     print("[INFO] Используйте ПКМ для отмены")
     print("[INFO] Используйте CКМ для завершения области")
+    print("[INFO] Используйте S для сохранения области")
     print("[INFO] Нажмите ESC для выхода")
-
+    cv.imshow('Select Polygonal ROI', img)
     while True:
         key = cv.waitKey(1) & 0xFF
         if key == 27:
@@ -479,7 +512,7 @@ def drawRoiEvent(event, x, y, flags, img):
     y - точка нажатия по оси ординат
     
     """
-    global mask, mask2, mask3
+    global mask, mask2, mask3, size_decrease_for_draw_roi
     img2 = img.copy()
 
     if event == cv.EVENT_LBUTTONDOWN:
@@ -499,12 +532,13 @@ def drawRoiEvent(event, x, y, flags, img):
 
         show_image = cv.addWeighted(src1=img, alpha=0.8, src2=mask3, beta=0.2, gamma=0)
 
-        cv.imshow("mask", mask2)
-        cv.imshow("show_img", show_image)
+        #cv.imshow("mask", mask2)
+        #cv.imshow("show_img", show_image)
 
         ROI = cv.bitwise_and(mask2, img)
-        cv.imshow("ROI", ROI)
-        cv.waitKey(0)
+        #cv.imshow("ROI", ROI)
+        #cv.waitKey(0)
+        showImages([mask2, show_image, ROI], 3, ["mask", "show_img", "ROI"])
 
     if len(pts) > 0:
         
@@ -528,7 +562,9 @@ def main():
     #CannyContours(source_photo, size_decrease=2, show=True)
     #videoMatcher(app)
     #templateMatching(source_image, template_image)
-    msk = drawRoi(source_photo)
+    
+    #CannyContours(source_photo, 3, show=True, mask=msk)
+    videoMatcher(source_video, template_matching=True, size_decrease=1, choose_ROI=True)
 
 
 if __name__=="__main__":
