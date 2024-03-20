@@ -35,6 +35,8 @@ def videoMatcher(video, harris=False, canny=False, template_matching=False, size
         if choose_ROI:
             mask = drawRoi(frame)
             choose_ROI=False
+        else:
+            mask = None
         if ret==True:
             if harris:
                 HarrisMethod(frame, show=True, size_decrease=size_decrease, wait_click=False, mask = mask)
@@ -359,7 +361,7 @@ def findFilters(source_image, size_decrease=1):
             break
         
         
-def CannyContours(source_image, size_decrease=1, show=False, biggest=False, pre_max=False, show_edges=False, mask = None, wait_click=True):
+def CannyContours(source_image, size_decrease=1, show=False, biggest=False, pre_max=False, show_edges=False, smallest=False, mask = None, wait_click=True):
     
     """
     source_image - входное изображение
@@ -378,8 +380,9 @@ def CannyContours(source_image, size_decrease=1, show=False, biggest=False, pre_
     except:
         pass
     very_source_image = deepcopy(source_image)
-    print(mask.shape, source_image.shape)
-    source_image = cv.bitwise_and(source_image, mask)
+    if mask:
+        print(mask.shape, source_image.shape)
+        source_image = cv.bitwise_and(source_image, mask)
     #cv.imshow("BITWISE", source_image)
     #cv.waitKey(0)
     source_image = cv.cvtColor(source_image, cv.COLOR_BGR2GRAY)
@@ -406,12 +409,21 @@ def CannyContours(source_image, size_decrease=1, show=False, biggest=False, pre_
     elif biggest:
         try:
             biggest_cont = max(contours, key=len)
-            image_with_contours = cv.drawContours(very_source_image, contours, -1, (0,255, 0),3)
+            image_with_contours = cv.drawContours(very_source_image, biggest_cont, -1, (0,255, 0),3)
         except:
             image_with_contours, biggest_cont = very_source_image, None
         if show:
             showImage(image_with_contours, size_decrease, "Canny Contours BIGGEST", wait_click=wait_click)
         contours = biggest_cont
+    elif smallest:
+        try:
+            smallest_cont = min(contours, key=len)
+            image_with_contours = cv.drawContours(very_source_image, smallest_cont, -1, (0,255, 0),3)
+        except:
+            image_with_contours, smallest_cont = very_source_image, None
+        if show:
+            showImage(image_with_contours, size_decrease, "Canny Contours BIGGEST", wait_click=wait_click)
+        contours = smallest_cont
     else:
         image_with_contours = cv.drawContours(very_source_image, contours, -1, (0,255, 0),3)
         if show:
@@ -553,7 +565,7 @@ def drawRoiEvent(event, x, y, flags, img):
 
 
 def main():
-    source_video = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\drone_vid.mp4"
+    source_video = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\DSC_1080.MOV"
     source_photo = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\source_image.png"
     app = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\174ND810_10_02\\DSC_1076.MOV"
     #source_photo = cv.imread(source_photo)
@@ -564,7 +576,7 @@ def main():
     #templateMatching(source_image, template_image)
     
     #CannyContours(source_photo, 3, show=True, mask=msk)
-    videoMatcher(source_video, template_matching=True, size_decrease=1, choose_ROI=True)
+    videoMatcher(source_video, canny=True, size_decrease=3 , choose_ROI=False)
 
 
 if __name__=="__main__":
