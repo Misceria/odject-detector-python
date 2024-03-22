@@ -1,5 +1,6 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QFileDialog, QWidget, QApplication, QLabel, QVBoxLayout, QGridLayout
 from PyQt5.QtGui import QImage, QPixmap, QColor
 import sys
@@ -57,29 +58,23 @@ class MainWindow(QWidget):
         self.image_label2.setPixmap(grey)
         self.image_label3.setPixmap(grey)
         self.image_label4.setPixmap(grey)
-        self.update_frames()
+        
+        self.cap = cv2.VideoCapture(0)
+        ret, frame = self.cap.read()
+        
+        self.timer = QTimer()
+        self.timer.setInterval(30)  # 30 мс между обновлениями кадров
+        self.timer.timeout.connect(self.update_frames)
+        self.timer.start()
         
         
     def update_frames(self):
-        
-        cap = cv2.VideoCapture(0)
-        ret, frame = cap.read()
-        if not cap.isOpened():
-            print("Error opening video capture device!")
-            exit()
-        while ret:
-            ret, frame = cap.read()
-            if not ret:
-                print("Can't grab frame. Error:", cv2.VideoCapture.getBackendName(cap) + ":", cap.get(cv2.CAP_PROP_BACKEND))
-                break
-            print(frame.shape)
-            image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_RGB888)
-            print(frame)
-            frame = QPixmap.fromImage(frame)
-            self.image_label.setPixmap(frame)
-            
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+        print("Update")
+        ret, frame = self.cap.read()
+        frame = cv2.resize(frame, (940, 520))
+        image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_BGR888)
+        frame = QPixmap.fromImage(image)
+        self.image_label.setPixmap(frame)
         
 
 
