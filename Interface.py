@@ -20,23 +20,16 @@ class MainWindow(QWidget):
         super().__init__()
         self.setWindowTitle("Qt static label demo")
         self.resize(1920, 1080)
-        width = 400
-        height = 300
+        width = 470*2
+        height = 260*2
         # create vid 1
         self.image_label = QLabel(self)
-        self.textLabel = QLabel('Demo1')
-        
         # create vid 2
         self.image_label2 = QLabel(self)
-        self.textLabel2 = QLabel('Demo2')
-        
         # create vid 3
         self.image_label3 = QLabel(self)
-        self.textLabel3 = QLabel('Demo3')
-        
         # create vid 4
         self.image_label4 = QLabel(self)
-        self.textLabel4 = QLabel('Demo4')
 
         # create a vertical box layout and add the two labels
         vbox = QGridLayout()
@@ -64,6 +57,30 @@ class MainWindow(QWidget):
         self.image_label2.setPixmap(grey)
         self.image_label3.setPixmap(grey)
         self.image_label4.setPixmap(grey)
+        self.update_frames()
+        
+        
+    def update_frames(self):
+        
+        cap = cv2.VideoCapture(0)
+        ret, frame = cap.read()
+        if not cap.isOpened():
+            print("Error opening video capture device!")
+            exit()
+        while ret:
+            ret, frame = cap.read()
+            if not ret:
+                print("Can't grab frame. Error:", cv2.VideoCapture.getBackendName(cap) + ":", cap.get(cv2.CAP_PROP_BACKEND))
+                break
+            print(frame.shape)
+            image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_RGB888)
+            print(frame)
+            frame = QPixmap.fromImage(frame)
+            self.image_label.setPixmap(frame)
+            
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        
 
 
 if __name__ == "__main__":
