@@ -86,12 +86,12 @@ class MainWindow(QWidget):
     def getCamerasGrid(self, num_of_cameras):
         max_videos_in_row = 3
         if num_of_cameras == 1:
-            self.labels = QLabel(self)
+            self.labels = [QLabel(self)]
             vbox = QGridLayout()
             vbox.setSpacing(0)
             vbox.setHorizontalSpacing(0)
             vbox.setVerticalSpacing(0)
-            vbox.addWidget(self.image_label, 0, 0)
+            vbox.addWidget(self.labels[0], 0, 0)
             grey = QPixmap(self.width, self.height)
             grey.fill(QColor('darkGray'))
             for x in self.labels:
