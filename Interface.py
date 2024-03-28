@@ -19,10 +19,13 @@ from threading import Thread
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Qt static label demo")
-        self.resize(1920, 1080)
-        width = 470*2
-        height = 260*2
+        self.setWindowTitle("Video Cameras View")
+        self.screen = QApplication.primaryScreen()
+        self.height, self.width = self.screen.size().height(), self.screen.size().width()
+        self.showMaximized()
+        #self.resize(1920, 1080)
+        self.width = 470*2
+        self.height = 260*2
         # create vid 1
         self.image_label = QLabel(self)
         # create vid 2
@@ -48,16 +51,17 @@ class MainWindow(QWidget):
         vbox.addWidget(self.image_label2, 1, 0)
         vbox.addWidget(self.image_label3, 0, 1)
         vbox.addWidget(self.image_label4, 1, 1)
-        # set the vbox layout as the widgets layout
+        # set the vbox layout as the widgets layouts
         self.setLayout(vbox)   
         # create a grey pixmap
-        grey = QPixmap(width, height)
+        grey = QPixmap(self.width, self.height)
         grey.fill(QColor('darkGray'))
         # set the image image to the grey pixmap
         self.image_label.setPixmap(grey)
         self.image_label2.setPixmap(grey)
         self.image_label3.setPixmap(grey)
         self.image_label4.setPixmap(grey)
+    
         
         self.cap = cv2.VideoCapture(0)
         ret, frame = self.cap.read()
@@ -68,8 +72,12 @@ class MainWindow(QWidget):
         self.timer.start()
         
         
+    def mousePressEvent(self, QMouseEvent):
+        print(QMouseEvent.pos(), self.image_label.pos(), (self.image_label.x(), self.image_label.x()+self.width), (self.image_label.y(), self.image_label.y()+self.height))
+        print(self.image_label2.pos()) 
+        
     def update_frames(self):
-        print("Update")
+        #print("Update")
         ret, frame = self.cap.read()
         frame = cv2.resize(frame, (940, 520))
         image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_BGR888)
