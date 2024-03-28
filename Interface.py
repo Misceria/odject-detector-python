@@ -23,23 +23,34 @@ class MainWindow(QWidget):
         self.screen = QApplication.primaryScreen()
         self.height, self.width = self.screen.size().height(), self.screen.size().width()
         self.showMaximized()
-        #self.resize(1920, 1080)
-        self.width = 470*2
-        self.height = 260*2
+        self.num_of_vids = 0
+        
+        self.caps = []
+        cap = cv2.VideoCapture(0)
+        self.caps.append(cap)
+        iteration = 1
+        while cap:
+            cap = cv2.VideoCapture(iteration)
+            self.caps.append(cap)
+            iteration += 1
+        
+        self.getCamerasGrid()
+        #self.width = 470*2
+        #self.height = 260*2
         # create vid 1
-        self.image_label = QLabel(self)
+        #self.image_label = QLabel(self)
         # create vid 2
-        self.image_label2 = QLabel(self)
+        #self.image_label2 = QLabel(self)
         # create vid 3
-        self.image_label3 = QLabel(self)
+        #self.image_label3 = QLabel(self)
         # create vid 4
-        self.image_label4 = QLabel(self)
+        #self.image_label4 = QLabel(self)
 
-        # create a vertical box layout and add the two labels
-        vbox = QGridLayout()
-        vbox.setSpacing(0)
-        vbox.setHorizontalSpacing(0)
-        vbox.setVerticalSpacing(0)
+        # create a vertical boxs layout and add the two labels
+        #vbox = QGridLayout()
+        #vbox.setSpacing(0)
+        #vbox.setHorizontalSpacing(0)
+        #vbox.setVerticalSpacing(0)
         """vbox.setVerticalSpacing(0)
         vbox.setContentsMargins(0, 0, 0, 0)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
@@ -47,42 +58,61 @@ class MainWindow(QWidget):
         self.image_label2.setSizePolicy(sizePolicy)
         self.image_label3.setSizePolicy(sizePolicy)
         self.image_label4.setSizePolicy(sizePolicy)"""
-        vbox.addWidget(self.image_label, 0, 0)
-        vbox.addWidget(self.image_label2, 1, 0)
-        vbox.addWidget(self.image_label3, 0, 1)
-        vbox.addWidget(self.image_label4, 1, 1)
+        #vbox.addWidget(self.image_label, 0, 0)
+        #vbox.addWidget(self.image_label2, 1, 0)
+        #vbox.addWidget(self.image_label3, 0, 1)
+        #vbox.addWidget(self.image_label4, 1, 1)
         # set the vbox layout as the widgets layouts
-        self.setLayout(vbox)   
+        #self.setLayout(vbox)   
         # create a grey pixmap
-        grey = QPixmap(self.width, self.height)
-        grey.fill(QColor('darkGray'))
+        #grey = QPixmap(self.width, self.height)
+        #grey.fill(QColor('darkGray'))
         # set the image image to the grey pixmap
-        self.image_label.setPixmap(grey)
-        self.image_label2.setPixmap(grey)
-        self.image_label3.setPixmap(grey)
-        self.image_label4.setPixmap(grey)
+        #self.image_label.setPixmap(grey)
+        #self.image_label2.setPixmap(grey)
+        #self.image_label3.setPixmap(grey)
+        #self.image_label4.setPixmap(grey)
     
         
-        self.cap = cv2.VideoCapture(0)
-        ret, frame = self.cap.read()
+        #self.cap = cv2.VideoCapture(0)
+        #ret, frame = self.cap.read()
         
         self.timer = QTimer()
         self.timer.setInterval(30)  # 30 мс между обновлениями кадров
         self.timer.timeout.connect(self.update_frames)
         self.timer.start()
         
+    
+    def getCamerasGrid(self, num_of_cameras):
+        max_videos_in_row = 3
+        if num_of_cameras == 1:
+            self.labels = QLabel(self)
+            vbox = QGridLayout()
+            vbox.setSpacing(0)
+            vbox.setHorizontalSpacing(0)
+            vbox.setVerticalSpacing(0)
+            vbox.addWidget(self.image_label, 0, 0)
+            grey = QPixmap(self.width, self.height)
+            grey.fill(QColor('darkGray'))
+            for x in self.labels:
+                x.setPixmap(grey)
+            return self.height, self.width
+        
+        
         
     def mousePressEvent(self, QMouseEvent):
         print(QMouseEvent.pos(), self.image_label.pos(), (self.image_label.x(), self.image_label.x()+self.width), (self.image_label.y(), self.image_label.y()+self.height))
         print(self.image_label2.pos()) 
         
+        
     def update_frames(self):
         #print("Update")
-        ret, frame = self.cap.read()
-        frame = cv2.resize(frame, (940, 520))
-        image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_BGR888)
-        frame = QPixmap.fromImage(image)
-        self.image_label.setPixmap(frame)
+        for cam_number in range(len(self.caps)):
+            ret, frame = self.cams[cam_number].read()
+            frame = cv2.resize(frame, (940, 520))
+            image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_BGR888)
+            frame = QPixmap.fromImage(image)
+            self.labels[cam_number].setPixmap(frame)
         
 
 
