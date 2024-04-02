@@ -15,14 +15,14 @@ TEMPLATES_DIR = 'C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\T
 
 
 
-def videoMatcher(video, harris=False, canny=False, template_matching=False, size_decrease=1, choose_ROI = False):
+def videoMatcher(video, harris=False, canny=False, template_matching=False, size_decrease=1, choose_ROI = False, mask=None):
     
     """
     
     Функция применения методов к видеопотоку
     
     """
-    
+    ROID = False
     cap = cv.VideoCapture(video)
     if cap.isOpened()==False:
         print("Error reading video stream file")
@@ -34,9 +34,7 @@ def videoMatcher(video, harris=False, canny=False, template_matching=False, size
             h, w, _ = frame.shape 
         if choose_ROI:
             mask = drawRoi(frame)
-            choose_ROI=False
-        else:
-            mask = None
+            choose_ROI = False
         if ret==True:
             if harris:
                 HarrisMethod(frame, show=True, size_decrease=size_decrease, wait_click=False, mask = mask)
@@ -259,6 +257,10 @@ def HarrisMethod(source_image, mask=[], show = False, size_decrease=1, wait_clic
     
     
     """
+    if mask == []:
+        have_mask = False
+    else:
+        have_mask = True
     rows, cols, _ = source_image.shape
     gray = cv.cvtColor(source_image, cv.COLOR_BGR2GRAY)
     gray = np.float32(gray)
@@ -268,23 +270,24 @@ def HarrisMethod(source_image, mask=[], show = False, size_decrease=1, wait_clic
     #dst = cv.erode(dst, np.ones((1,1), np.uint8), iterations=1)
     dots_y, dots_x = np.where(dst>0.01*dst.max())
     print(len(dots_y), len(dots_y))
-    if mask == []:
+    if not have_mask:
         if len(dots_y) > 500:
-            print(len(dots_y), len(dots_x))
             indexes = np.random.random_integers(0, len(dots_y)-1, 500)
-            print(len(indexes))
             n_dots_x = []
             n_dots_y = []
             for ind in indexes:
                 n_dots_x.append(dots_x[ind])
                 n_dots_y.append(dots_y[ind])
     else:
+        #print(mask[dots_y[10], dots_x[10]].all())
         n_dots_x = []
         n_dots_y = []
         for ind in range(len(dots_x)):
-            if mask[dots_y[ind], dots_x[ind]].all() == 1:
+            print(mask[dots_y[ind], dots_x[ind]].all())
+            if mask[dots_y[ind], dots_x[ind]].all():
                 n_dots_x.append(dots_x[ind])
-                n_dots_y.append(dots_y[ind])  
+                n_dots_y.append(dots_y[ind]) 
+        print(len(n_dots_x), len(n_dots_y))
     main_dot = EuclideanDistanceMax(n_dots_y, n_dots_x, (rows, cols))
     if main_dot:
         source_image = cv.circle(source_image, main_dot, 10, (0,0,255), 3)
@@ -567,7 +570,7 @@ def drawRoiEvent(event, x, y, flags, img):
 def main():
     source_video = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\DSC_1080.MOV"
     source_photo = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\source_image.png"
-    app = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\174ND810_10_02\\DSC_1076.MOV"
+    app = "C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\DSC_1076.MOV"
     #source_photo = cv.imread(source_photo)
     #findFilters(source_photo, size_decrease=3)
     #image = imageMatcher(source_photo, size_decrease=2, show=True)
@@ -576,7 +579,7 @@ def main():
     #templateMatching(source_image, template_image)
     
     #CannyContours(source_photo, 3, show=True, mask=msk)
-    videoMatcher(source_video, canny=True, size_decrease=3 , choose_ROI=False)
+    videoMatcher(source_video, harris=True, size_decrease=3 , choose_ROI=True)
 
 
 if __name__=="__main__":
