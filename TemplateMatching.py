@@ -9,26 +9,39 @@ from math import sqrt
 from scipy.signal import medfilt
 import imutils
 import joblib
+import time
 
 
 TEMPLATES_DIR = 'C:\\Users\\kseni\\Github-repos\\odject-detector-python\\Imgs\\Templates'
 
 
 
-def videoMatcher(video, harris=False, canny=False, template_matching=False, size_decrease=1, choose_ROI = False, mask=None):
+def videoMatcher(video, 
+                 harris=False, 
+                 canny=False, 
+                 template_matching=False, 
+                 size_decrease=1,
+                 choose_ROI = False,
+                 mask=[],
+                 threshold=0.01,
+                 show_fps=False):
     
     """
     
     Функция применения методов к видеопотоку
     
     """
-    ROID = False
+    
     cap = cv.VideoCapture(video)
     if cap.isOpened()==False:
         print("Error reading video stream file")
     once = True
+
+    fps = 0
     while cap.isOpened:
         ret, frame = cap.read()
+        fps_start_time = time.time()
+        
         if once:
             once = False
             h, w, _ = frame.shape 
@@ -37,18 +50,25 @@ def videoMatcher(video, harris=False, canny=False, template_matching=False, size
             choose_ROI = False
         if ret==True:
             if harris:
-                HarrisMethod(frame, show=True, size_decrease=size_decrease, wait_click=False, mask = mask)
+                HarrisMethod(frame, show=True, size_decrease=size_decrease,
+                             wait_click=False, mask = mask, threshold=threshold,
+                             show_fps=show_fps, fps=fps)
             if canny:
-                CannyContours(frame, show=True, size_decrease=size_decrease, wait_click=False, mask=mask)
+                CannyContours(frame, show=True, size_decrease=size_decrease,
+                              wait_click=False, mask=mask, show_fps=show_fps,
+                              fps=fps)
             if template_matching:
-                templateMatching(frame, TEMPLATES_DIR, show=True, size_decrease=size_decrease, wait_click=False, mask=mask)
+                templateMatching(frame, TEMPLATES_DIR, show=True, size_decrease=size_decrease,
+                                 wait_click=False, mask=mask, show_fps=show_fps,
+                                 fps=fps)
             
             key_clicked = cv.waitKey(25)
             if key_clicked & 0xFF == ord('q'):
                 break
             elif key_clicked & 0xFF == ord('r'):
                 choose_ROI = True
-        
+                
+            fps = 1.0 / (time.time()-fps_start_time)
         else:   
             break
 
@@ -80,7 +100,8 @@ def imageMatcher(source_image, show=False, size_decrease=4):
     return image, mask
     
 
-def templateMatching(source_image, templates_dir, show=False, thresh=0.7, mask = [], wait_click=True, size_decrease=1):
+def templateMatching(source_image, templates_dir, show=False, thresh=0.7, mask = [],
+                     wait_click=True, size_decrease=1, show_fps=False, fps=0):
     
     
     """
@@ -123,7 +144,9 @@ def templateMatching(source_image, templates_dir, show=False, thresh=0.7, mask =
 
         #cv.rectangle(source_image, top_left, bottom_right, 255, 2)
     if show:
-        showImage(source_image, size_decrease=size_decrease, name_image="Template Matching", wait_click=wait_click)
+        showImage(source_image, size_decrease=size_decrease,
+                  name_image="Template Matching", wait_click=wait_click,
+                  show_fps=show_fps, fps=fps)
     return source_image
 
 
@@ -248,7 +271,8 @@ def getSky(image, show=False, show_mask=False, size_decrease=1):
     return final_image, mask
 
 
-def HarrisMethod(source_image, mask=[], show = False, size_decrease=1, wait_click=True):
+def HarrisMethod(source_image, mask=[], show = False, size_decrease=1,
+                 wait_click=True, threshold=0.01, show_fps=False, fps=0):
     
     """
     THIS FUNCTION NEEDS REFACTORING
@@ -268,7 +292,7 @@ def HarrisMethod(source_image, mask=[], show = False, size_decrease=1, wait_clic
     #result is dilated for marking the corners, not important
     #dst = cv.dilate(dst,None)
     #dst = cv.erode(dst, np.ones((1,1), np.uint8), iterations=1)
-    dots_y, dots_x = np.where(dst>0.01*dst.max())
+    dots_y, dots_x = np.where(dst>threshold*dst.max())
     print(len(dots_y), len(dots_y))
     if not have_mask:
         if len(dots_y) > 500:
@@ -283,7 +307,6 @@ def HarrisMethod(source_image, mask=[], show = False, size_decrease=1, wait_clic
         n_dots_x = []
         n_dots_y = []
         for ind in range(len(dots_x)):
-            print(mask[dots_y[ind], dots_x[ind]].all())
             if mask[dots_y[ind], dots_x[ind]].all():
                 n_dots_x.append(dots_x[ind])
                 n_dots_y.append(dots_y[ind]) 
@@ -298,7 +321,7 @@ def HarrisMethod(source_image, mask=[], show = False, size_decrease=1, wait_clic
         # Threshold for an optimal value, it may vary depending on the image.
         #source_image[dst>0.01*dst.max()]=[0,0,255]
     if show:
-        showImage(source_image, size_decrease, "Harris Method", wait_click=wait_click)
+        showImage(source_image, size_decrease, "Harris Method", wait_click=wait_click, show_fps=show_fps, fps=fps)
     return source_image, main_dot
         
         
@@ -364,7 +387,9 @@ def findFilters(source_image, size_decrease=1):
             break
         
         
-def CannyContours(source_image, size_decrease=1, show=False, biggest=False, pre_max=False, show_edges=False, smallest=False, mask = None, wait_click=True):
+def CannyContours(source_image, size_decrease=1, show=False, biggest=False,
+                  pre_max=False, show_edges=False, smallest=False,
+                  mask = None, wait_click=True, show_fps=False, fps=0):
     
     """
     source_image - входное изображение
@@ -434,7 +459,7 @@ def CannyContours(source_image, size_decrease=1, show=False, biggest=False, pre_
     return image_with_contours, contours
 
 
-def showImage(source_image, size_decrease=1, name_image = "Sample", wait_click=False):
+def showImage(source_image, size_decrease=1, name_image = "Sample", wait_click=False, show_fps=False, fps=0):
     
     """
     
@@ -449,6 +474,9 @@ def showImage(source_image, size_decrease=1, name_image = "Sample", wait_click=F
     else:
         h, w = source_image.shape
     show_image = cv.resize(source_image, (w//size_decrease, h//size_decrease))
+    if show_fps:
+        fps_text = "FPS: {:.2f}".format(fps)
+        cv.putText(show_image, fps_text, (5, 30), cv.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
     cv.imshow(name_image, show_image)
     if wait_click:
         cv.waitKey(0)
@@ -579,7 +607,7 @@ def main():
     #templateMatching(source_image, template_image)
     
     #CannyContours(source_photo, 3, show=True, mask=msk)
-    videoMatcher(source_video, harris=True, size_decrease=3 , choose_ROI=True)
+    videoMatcher(source_video, harris=True, size_decrease=3 , choose_ROI=True, threshold=0.001, show_fps=True)
 
 
 if __name__=="__main__":
