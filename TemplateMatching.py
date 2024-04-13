@@ -607,7 +607,7 @@ def main():
     #templateMatching(source_image, template_image)
     
     #CannyContours(source_photo, 3, show=True, mask=msk)
-    videoMatcher(source_video, harris=True, size_decrease=3 , choose_ROI=True, threshold=0.001, show_fps=True)
+    videoMatcher(app, harris=True, size_decrease=2 , choose_ROI=True, threshold=0.0001, show_fps=True)
 
 
 if __name__=="__main__":
