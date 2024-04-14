@@ -23,7 +23,9 @@ class MainWindow(QWidget):
         #self.height, self.width = self.screen.size().height(), self.screen.size().width()
         uic.loadUi('main.ui', self)
         self.showMaximized()
+        
         self.num_of_vids = self.comboBox.currentText()
+        print(self.num_of_vids)
         
         self.caps = []
         cap = cv2.VideoCapture(0)
@@ -40,10 +42,13 @@ class MainWindow(QWidget):
                 self.caps.append(cap)
                 iteration += 1
             print(self.caps)
+            
+        print(self.gridLayout.geometry().topLeft())
+        print(self.gridLayout.geometry().bottomRight())
         
         #self.getCamerasGrid()
-        self.width = 470*2
-        self.height = 260*2
+        self.width = 480*2
+        self.height = 270*2
         # create vid 1
         self.image_label = QLabel(self)
         # create vid 2
@@ -81,6 +86,11 @@ class MainWindow(QWidget):
         self.image_label4.setPixmap(grey)
         self.labels = [self.image_label, self.image_label2,
                        self.image_label3, self.image_label4]
+        
+        self.image_label.mousepressevent = self.test
+        self.image_label2.mousepressevent = self.test
+        self.image_label3.mousepressevent = self.test
+        self.image_label4.mousepressevent = self.test
     
         
         #self.cap = cv2.VideoCapture(0)
@@ -90,6 +100,17 @@ class MainWindow(QWidget):
         self.timer.setInterval(30)  # 30 мс между обновлениями кадров
         self.timer.timeout.connect(self.update_frames)
         self.timer.start()
+        
+         
+        print(f"Label 1 coors = ({self.image_label.geometry()}, {self.image_label.y()})")
+        print(f"Label 2 coors = ({self.image_label2.geometry()}, {self.image_label2.y()})")
+        print(f"Label 3 coors = ({self.image_label3.geometry()}, {self.image_label3.y()})")
+        print(f"Label 4 coors = ({self.image_label4.geometry()}, {self.image_label4.y()})")
+        
+        
+    
+    def test(self):
+        print(f"{self} clicked")
         
     
     def getCamerasGrid(self, num_of_cameras):
@@ -115,7 +136,8 @@ class MainWindow(QWidget):
         
         
     def update_frames(self):
-        #print("Update")
+        #print("Update") 
+        self.num_of_vids = self.comboBox.currentText()
         for cam_number in range(len(self.caps)):
             ret, frame = self.caps[cam_number].read()
             try:
