@@ -16,12 +16,16 @@ from threading import Thread
 from ultralytics import YOLO
 from ultralytics.utils.plotting import Annotator
 
+import skvideo.io as io
+import ffmpeg
+
+
 
 WEIGHTS = 'yolo//drone.pt'
 MODEL = YOLO(WEIGHTS)
 
 class MainWindow(QWidget):
-    def __init__(self, videos=False):
+    def __init__(self, videos=False, web_cams=False, ip_cams=False, raw_stream=False):
         super().__init__()
         self.setWindowTitle("Video Cameras View")
         #self.height, self.width = self.screen.size().height(), self.screen.size().width()
@@ -40,17 +44,28 @@ class MainWindow(QWidget):
                        cv2.VideoCapture('Imgs\DSC_1068.MOV'),
                        cv2.VideoCapture('Imgs\DSC_1076.MOV'),
                        cv2.VideoCapture('Imgs\DSC_1080.MOV'),]
-        else:
-            """while cap.isOpened():
+        elif web_cams:
+            while cap.isOpened():
                 cap = cv2.VideoCapture(iteration)
                 self.caps.append(cap)
-                iteration += 1"""
+                iteration += 1
+        elif ip_cams:
             self.caps=[
-                #cv2.VideoCapture(0),
                 cv2.VideoCapture("rtsp://192.168.1.168:554/stream_1"),
                 cv2.VideoCapture("rtsp://admin:YWRBUX@192.168.1.169:554")
             ]
-            print(self.caps)
+        elif raw_stream:
+            self.caps=[
+                cv2.VideoCapture("PLACE_HERE_IP_CAMERA") # Change THIS LINE 
+            ]
+            caps_dict = [{
+                "fps": 60,
+                "width": 1920,
+                "height": 1080
+            }]
+            self.caps[0].set(cv2.CAP_PROP_FRAME_WIDTH, caps_dict[0]['width']) # Change to your WIDTH
+            self.caps[0].set(cv2.CAP_PROP_FRAME_HEIGHT, caps_dict[0]['height'])# Change to your HEIGHT
+            
             
         print(self.gridLayout.geometry().topLeft())
         print(self.gridLayout.geometry().bottomRight())
@@ -144,68 +159,96 @@ class MainWindow(QWidget):
         print(self.image_label2.pos()) 
         
         
-    def update_frames(self):
+    def update_frames(self, stream=False, raw_stream=False):
         #print("Update") 
         self.num_of_vids = self.comboBox.currentText()
         
-        res = MODEL.predict("cams.streams", stream=True, save=False)
-        print(res)
-        iter = 0
-        for x in res:
-            iter +=1
-            if iter % 2 == 0:
-                cam_number = 0
-            else:
-                cam_number = 1
-            
-            #ret, frame = self.caps[cam_number].read()
-            try:
-                annotator = Annotator(x.orig_img)
-                
-                boxes = x.boxes
-                for box in boxes:
+        
+        if raw_stream:
+            for cam_number in range(len(self.caps)):
+                    ret, frame = self.caps[cam_number].read()
+                    res = MODEL.predict(frame, imgsz=640, save=False)
+                    for r in res:
+                        try:
+                            annotator = Annotator(frame)
+                            
+                            boxes = r.boxes
+                            for box in boxes:
+                                
+                                b = box.xyxy[0]  # get box coordinates in (left, top, right, bottom) format
+                                c = box.cls
+                                annotator.box_label(b, MODEL.names[int(c)])
+                        except: 
+                            pass
+                    try:
+                        frame = cv2.resize(frame, (940, 520))
+                        image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_BGR888)
+                        frame = QPixmap.fromImage(image)
+                        self.labels[cam_number].setPixmap(frame)
+                    except Exception as e:
+                        #print(f"Image {cam_number} not read")
+                        pass     
+        else:
+            if stream:
+                res = MODEL.predict("cams.streams", stream=True, save=False)
+                print(res)
+                iter = 0
+                for x in res:
+                    iter +=1
+                    if iter % 2 == 0:
+                        cam_number = 0
+                    else:
+                        cam_number = 1
                     
-                    b = box.xyxy[0]  # get box coordinates in (left, top, right, bottom) format
-                    c = box.cls
-                    annotator.box_label(b, MODEL.names[int(c)])
-            except:
-                pass
-            try:
-                frame = cv2.resize(x.orig_img, (940, 520))
-                image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_BGR888)
-                frame = QPixmap.fromImage(image)
-                self.labels[cam_number].setPixmap(frame)
-            except Exception as e:
-                #print(f"Image {cam_number} not read")
-                pass
-        """for cam_number in range(len(self.caps)):
-            ret, frame = self.caps[cam_number].read()
-            res = MODEL.predict(frame, imgsz=640, save=False)
-            for r in res:
-                try:
-                    annotator = Annotator(frame)
-                    
-                    boxes = r.boxes
-                    for box in boxes:
+                    #ret, frame = self.caps[cam_number].read()
+                    try:
+                        annotator = Annotator(x.orig_img)
                         
-                        b = box.xyxy[0]  # get box coordinates in (left, top, right, bottom) format
-                        c = box.cls
-                        annotator.box_label(b, MODEL.names[int(c)])
-                except:
-                    pass
-            try:
-                frame = cv2.resize(frame, (940, 520))
-                image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_BGR888)
-                frame = QPixmap.fromImage(image)
-                self.labels[cam_number].setPixmap(frame)
-            except Exception as e:
-                #print(f"Image {cam_number} not read")
-                pass
-        """
+                        boxes = x.boxes
+                        for box in boxes:
+                            
+                            b = box.xyxy[0]  # get box coordinates in (left, top, right, bottom) format
+                            c = box.cls
+                            annotator.box_label(b, MODEL.names[int(c)])
+                    except:
+                        pass
+                    try:
+                        frame = cv2.resize(x.orig_img, (940, 520))
+                        image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_BGR888)
+                        frame = QPixmap.fromImage(image)
+                        self.labels[cam_number].setPixmap(frame)
+                    except Exception as e:
+                        #print(f"Image {cam_number} not read")
+                        pass
+            else:
+                for cam_number in range(len(self.caps)):
+                    ret, frame = self.caps[cam_number].read()
+                    res = MODEL.predict(frame, save=False)
+                    for r in res:
+                        try:
+                            annotator = Annotator(frame)
+                            
+                            boxes = r.boxes
+                            for box in boxes:
+                                
+                                b = box.xyxy[0]  # get box coordinates in (left, top, right, bottom) format
+                                c = box.cls
+                                annotator.box_label(b, MODEL.names[int(c)])
+                        except:
+                            pass
+                    try:
+                        frame = cv2.resize(frame, (940, 520))
+                        image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_BGR888)
+                        frame = QPixmap.fromImage(image)
+                        self.labels[cam_number].setPixmap(frame)
+                    except Exception as e:
+                        #print(f"Image {cam_number} not read")
+                        pass
+        
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    a = MainWindow(videos=False)
+    a = MainWindow(videos=True)
     a.show()
     sys.exit(app.exec_())
