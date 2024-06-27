@@ -249,6 +249,6 @@ class MainWindow(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    a = MainWindow(videos=True)
+    a = MainWindow(videos=True, web_cams=False, ip_cams=False, raw_stream=False)
     a.show()
     sys.exit(app.exec_())
