@@ -68,54 +68,120 @@ ArchiveWindow::ArchiveWindow(QWidget *parent)
 	QSqlQuery query;
 
 	// получаем значения всех checkbox'ов для создания правильного sql-запроса
-	string request = "SELECT * FROM Records r WHERE";
-	bool first = True;
-	if (camVD1_CB->isChecked()){
-		string request = request + 'r.Cam_number == "1"';
-		bool first = False;
-	}
-	if (camVD2_CB->isChecked()){
+	std::string request = "SELECT * FROM Records r";
+	bool first = true;
+	bool cam1 = true;
+	bool cam2 = true;
+	bool ikcam1 = false;
+	bool ikcam2 = false;
+	bool video = false;
+	bool screenshot = false;
+	if (cam1){
 		if (first){
-			string request = request + 'r.Cam_number == "2"';
+			request = request + " WHERE";
+			first = false;
+			if (cam2){
+			    request = request + " (r.Cam_number == '1'";
+			}
+			else{
+			    request = request + " r.Cam_number == '1'";
+			}
 		}
 		else{
-			string request = request + 'OR r.Cam_number == "2"';
+			if (cam2){
+				request = request + " AND (r.Cam_number == '1'";
+			}
+			else{
+				request = request + " AND r.Cam_number == '1'";
+			}
 		}
 	}
-	//if (camIK1_CB->isChecked()){
-	//	string request = request + 'r.Cam_number == "1"';
-	//	bool first = False;
-	//}
-	//if (camIK2_CB->isChecked()){
-	//	if (bool){
-	//		string request = request + 'r.Cam_number == "0"';
-	//	}
-	//	else{
-	//		string request = request + 'OR r.Cam_number == "0	"';
-	//	}
-	//}
-	if (vid_CB.isChecked()){
+	if (cam2){
 		if (first){
-			string request = request + 'r.File_type == "AVI" OR r.File_type == "MP4" OR r.File_type == "MPEG" OR r.File_type == "WMV" OR r.File_type == "MOV"';
+			request = request + " WHERE";
+			first = false;
+			request = request + " r.Cam_number == '2'";
 		}
 		else{
-			string request = request + 'AND (r.File_type == "AVI" OR r.File_type == "MP4" OR r.File_type == "MPEG" OR r.File_type == "WMV" OR r.File_type == "MOV")';
+			if (cam1){
+				request = request + " OR r.Cam_number == '2')";
+			}
+			else{
+				request = request + " AND r.Cam_number == '2'";
+			}
 		}
 	}
 
-	if (scr_CB.isChhecked()){
+// ЗДЕСЬ ТРЕБУЕТСЯ ЗАМЕНА r.Cam_number == "1" на необходимое значение
+
+	if (ikcam1){
 		if (first){
-			string request = request + 'r.File_type == "PNG" OR r.File_type == "JPG" OR r.File_type == "JPEG" OR r.File_type == "GIF" OR r.File_type == "BMP"';
-		}
-		if(vid_CB.isChecked()){
-			string request = request + 'OR (r.File_type == "PNG" OR r.File_type == "JPG" OR r.File_type == "JPEG" OR r.File_type == "GIF" OR r.File_type == "BMP")';
+			request = request + " WHERE";
+			first = false;
+			if (ikcam2){
+			    request = request + " (r.Cam_number == '1'";
+			}
+			else{
+			    request = request + " r.Cam_number == '1'";
+			}
 		}
 		else{
-			string request = request + 'AND (r.File_type == "PNG" OR r.File_type == "JPG" OR r.File_type == "JPEG" OR r.File_type == "GIF" OR r.File_type == "BMP")';
+			if (ikcam2){
+				request = request + " AND (r.Cam_number == '1'";
+			}
+			else{
+				request = request + " AND r.Cam_number == '1'";
+			}
+		}
+	}
+	if (ikcam2){
+		if (first){
+			request = request + " WHERE";
+			first = false;
+			request = request + " r.Cam_number == '0'";
+		}
+		else{
+			if (ikcam1){
+				request = request + " OR r.Cam_number == '0')";
+			}
+			else{
+				request = request + " AND r.Cam_number == '0'";
+			}
 		}
 	}
 
+	if (video){
+		if (first){
+			request = request + " WHERE";
+			first = false;
+			request = request + " (r.File_type == 'AVI' OR r.File_type == 'MP4' OR r.File_type == 'MPEG' OR r.File_type == 'WMV' OR r.File_type == 'MOV')";
+		}
+		else{
+			if (screenshot){
+				request = request + " AND (r.File_type == 'AVI' OR r.File_type == 'MP4' OR r.File_type == 'MPEG' OR r.File_type == 'WMV' OR r.File_type == 'MOV'";
+			}
+			else{
+				request = request + " AND (r.File_type == 'AVI' OR r.File_type == 'MP4' OR r.File_type == 'MPEG' OR r.File_type == 'WMV' OR r.File_type == 'MOV')";
+			}
+		}
+	}
+	if (screenshot){
+		if (first){
+			request = request + " WHERE";
+			first = false;
+			request = request + " (r.File_type == 'PNG' OR r.File_type == 'JPG' OR r.File_type == 'JPEG' OR r.File_type == 'GIF' OR r.File_type == 'BMP')";
+		}
+		else{
+			if(video){
+				request = request + " OR r.File_type == 'PNG' OR r.File_type == 'JPG' OR r.File_type == 'JPEG' OR r.File_type == 'GIF' OR r.File_type == 'BMP')";
+			}
+			else{
+				request = request + " AND (r.File_type == 'PNG' OR r.File_type == 'JPG' OR r.File_type == 'JPEG' OR r.File_type == 'GIF' OR r.File_type == 'BMP')";
+			}
+		}
+	}
 
+	qDebug() << query.exec(request)
 	qDebug() << query.exec("SELECT rowid, * FROM Records");
 
 
